@@ -1,0 +1,5 @@
+{
+  "classifier": {
+    "net": "meta-4Layer-cnn-cifar10"
+  }
+}

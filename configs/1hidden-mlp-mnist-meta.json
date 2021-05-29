@@ -1,0 +1,5 @@
+{
+  "classifier": {
+    "net": "meta-mnist-1hidden"
+  }
+}
