@@ -1,7 +1,8 @@
-# Useful and frequently used code for training neural networks
+# Replicating the experiments
+1. Generate the commands for the desired experiment using the `scripts/fcmi_scripts.py` script.
+2. Parse the result of the experiment using the `scripts/fcmi_parse_results.py` script.
+3. Use the `notebooks/fcmi-plots.ipynb` to generate plots from the parsed results.
 
-
-## Requirements:
-* Basic data science libs: `numpy`, `scipy`, `tqdm`, `matplotlib`, `seaborn`, `pandas`, `scikit-learn`.
-* We use `Pytorch 1.2.0`, but higher versions may work too.
-* Additionally, only for extracting data from tensorboard files one might need tensorflow.
+# Requirements
+* Basic libraries such as `numpy`, `scipy`, `tqdm`, `matplotlib`, and `seaborn`.
+* We used `Pytorch 1.7.0`, but higher versions should work too.
