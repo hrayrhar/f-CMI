@@ -67,7 +67,7 @@ class LangevinDynamics(StandardClassifier):
     @capture_arguments_of_init
     def __init__(self, input_shape, architecture_args, device='cuda',
                  ld_lr=None, ld_beta=None, ld_schedule_fn=None,
-                 ld_track_grad_variance=True, **kwargs) -> object:
+                 ld_track_grad_variance=True, ld_track_every_iter=1, **kwargs) -> object:
         super(LangevinDynamics, self).__init__(input_shape=input_shape,
                                                architecture_args=architecture_args,
                                                device=device,
@@ -76,6 +76,7 @@ class LangevinDynamics(StandardClassifier):
         self.beta = ld_beta
         self.schedule_fn = ld_schedule_fn
         self.track_grad_variance = ld_track_grad_variance
+        self.track_every_iter = ld_track_every_iter
 
         self._iteration = 0
         self._lr_hist = [self.lr]
@@ -96,18 +97,24 @@ class LangevinDynamics(StandardClassifier):
 
         # compute gradient variance
         if self.track_grad_variance:
-            grads = get_weight_gradients(model=self, dataset=loader.dataset,
-                                         max_num_examples=100)  # using only 100 examples for speed
-            grads_flattened = []
-            for sample_idx in range(min(100, len(loader.dataset))):
-                cur_grad = [grads[k][sample_idx].flatten() for k in grads.keys()]
-                grads_flattened.append(torch.cat(cur_grad, dim=0))
-            grads = torch.stack(grads_flattened)
-            del grads_flattened
-            mean_grad = torch.mean(grads, dim=0, keepdim=True)
-            grad_variance = torch.sum((grads - mean_grad)**2, dim=1).mean(dim=0)
-            self._grad_variance_hist.append(grad_variance)
-            tensorboard.add_scalar('LD_grad_variance', grad_variance, self._iteration)
+            if (self._iteration - 1) % self.track_every_iter == 0:
+                grads = get_weight_gradients(model=self, dataset=loader.dataset,
+                                             max_num_examples=100,   # using 100 examples for speed
+                                             use_eval_mode=True,
+                                             random_selection=True)
+                self.train()  # back to training mode
+                grads_flattened = []
+                for sample_idx in range(min(100, len(loader.dataset))):
+                    cur_grad = [grads[k][sample_idx].flatten() for k in grads.keys()]
+                    grads_flattened.append(torch.cat(cur_grad, dim=0))
+                grads = torch.stack(grads_flattened)
+                del grads_flattened
+                mean_grad = torch.mean(grads, dim=0, keepdim=True)
+                grad_variance = torch.sum((grads - mean_grad)**2, dim=1).mean(dim=0)
+                self._grad_variance_hist.append(grad_variance)
+                tensorboard.add_scalar('LD_grad_variance', grad_variance, self._iteration)
+            else:
+                self._grad_variance_hist.append(self._grad_variance_hist[-1])
 
     def before_weight_update(self, **kwargs):
         # manually doing the noisy gradient update
