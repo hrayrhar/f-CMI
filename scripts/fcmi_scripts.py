@@ -124,6 +124,36 @@ def foo(**kwargs):
                 print(command)
 
 
+@register_fn(local_functions, 'cifar10-pretrained-resnet50-LD')
+def foo(**kwargs):
+    config_file = 'configs/pretrained-resnet50-cifar10.json'
+    batch_size = 64
+    n_epochs = 16
+    save_iter = 2
+    exp_name = "cifar10-pretrained-resnet50-LD"
+    dataset = 'cifar10'
+    ld_lr = 0.01
+    ld_beta = 10.0
+
+    command_prefix = f"python -um scripts.fcmi_train_classifier -c {config_file} -d cuda -b {batch_size} " \
+                     f"-e {n_epochs} -s {save_iter} -v 10000 --exp_name {exp_name} -D {dataset} " \
+                     f"-m LangevinDynamics -A --resize_to_imagenet  "\
+                     f"--ld_lr {ld_lr} --ld_beta {ld_beta} "
+
+    n_seeds = 1
+    n_S_seeds = 40
+    ns = [20000]
+
+    for n in ns:
+        for seed in range(n_seeds):
+            for S_seed in range(n_S_seeds):
+                command = command_prefix + f"--n {n} --seed {seed} --S_seed {S_seed}"
+                if S_seed < 4:  # producing in total 4 runs with this flag
+                    command += " --ld_track_grad_variance --ld_track_every_iter 10"
+                command += ";"
+                print(command)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_names', '-E', type=str, nargs='+', required=True)

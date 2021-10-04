@@ -18,6 +18,13 @@ def mnist_ld_schedule(lr, beta, iteration):
     return lr, beta
 
 
+def cifar_resnet50_ld_schedule(lr, beta, iteration):
+    if iteration % 300 == 0:
+        lr = lr * 0.9
+    beta = min(16000, max(100, 10 * np.exp(iteration / 300)))
+    return lr, beta
+
+
 def load_data(args):
     all_examples, _, _, _ = load_data_from_arguments(args, build_loaders=False)
 
@@ -77,6 +84,7 @@ def main():
     parser.add_argument('--ld_lr', type=float, help='initial learning rate of Langevin dynamics')
     parser.add_argument('--ld_beta', type=float, help='initial inverse temperature of LD')
     parser.add_argument('--ld_track_grad_variance', dest='ld_track_grad_variance', action='store_true')
+    parser.add_argument('--ld_track_every_iter', type=int, default=1)
     args = parser.parse_args()
     print(args)
 
@@ -120,14 +128,19 @@ def main():
     if args.deterministic:
         utils.set_seed(42)
 
+    ld_schedule_fn = mnist_ld_schedule
+    if args.exp_name == 'cifar10-pretrained-resnet50-LD':
+        ld_schedule_fn = cifar_resnet50_ld_schedule
+
     model = model_class(input_shape=get_input_shape(train_loader.dataset),
                         architecture_args=architecture_args,
                         device=args.device,
                         load_from=args.load_from,
                         ld_lr=args.ld_lr,
                         ld_beta=args.ld_beta,
-                        ld_schedule_fn=mnist_ld_schedule,
-                        ld_track_grad_variance=args.ld_track_grad_variance)
+                        ld_schedule_fn=ld_schedule_fn,
+                        ld_track_grad_variance=args.ld_track_grad_variance,
+                        ld_track_every_iter=args.ld_track_every_iter)
 
     metrics_list = [metrics.Accuracy(output_key='pred')]
     if args.dataset == 'imagenet':

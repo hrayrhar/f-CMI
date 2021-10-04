@@ -12,7 +12,8 @@ from nnlib.nnlib.matplotlib_utils import import_matplotlib
 matplotlib, plt = import_matplotlib()
 
 from modules.bound_utils import estimate_fcmi_bound_classification, estimate_sgld_bound
-from scripts.fcmi_train_classifier import mnist_ld_schedule  # for pickle to be able to load LD methods
+from scripts.fcmi_train_classifier import mnist_ld_schedule, \
+    cifar_resnet50_ld_schedule  # for pickle to be able to load LD methods
 import methods
 
 
@@ -66,7 +67,6 @@ def get_fcmi_results_for_fixed_z(n, epoch, seed, args):
         masks.append(cur_mask)
         train_accs.append(cur_train_acc)
         val_accs.append(cur_val_acc)
-
 
     fcmi_bound = estimate_fcmi_bound_classification(masks=masks, preds=preds,
                                                     num_examples=n, num_classes=args.num_classes)
@@ -178,6 +178,13 @@ def main():
         args.ns = [1000, 5000, 20000]
         args.epochs = [40]
         args.num_classes = 10
+    elif args.exp_name == 'cifar10-pretrained-resnet50-LD':
+        args.n_seeds = 1
+        args.n_S_seeds = 40
+        args.ns = [20000]
+        args.epochs = np.arange(1, 9) * 2
+        args.num_classes = 10
+        args.batch_size = 64
     else:
         raise ValueError(f"Unexpected exp_name: {args.exp_name}")
 
@@ -191,7 +198,7 @@ def main():
         pickle.dump(results, f)
 
     # parse the quantities needed for the Negrea et al. SGLD bound
-    if args.exp_name in ['fcmi-mnist-4vs9-CNN-LD']:
+    if args.exp_name in ['fcmi-mnist-4vs9-CNN-LD', 'cifar10-pretrained-resnet50-LD']:
         sgld_results = NestedDict()  # indexing with n, epoch
         for n in tqdm(args.ns):
             for epoch in tqdm(args.epochs, leave=False):

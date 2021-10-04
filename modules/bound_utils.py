@@ -17,7 +17,7 @@ def discrete_mi_est(xs, ys, nx=2, ny=2):
             if prob[a,b] < 1e-9:
                 continue
             mi += prob[a,b] * np.log(prob[a,b]/(pa[a]*pb[b]))
-    return mi
+    return max(0.0, mi)
 
 
 def estimate_fcmi_bound_classification(masks, preds, num_examples, num_classes,
