@@ -2,12 +2,13 @@ import argparse
 import json
 import pickle
 
+from torch.utils.data import DataLoader
 import numpy as np
 
 from nnlib.nnlib import training, metrics, callbacks, utils
 from nnlib.nnlib.data_utils.wrappers import SubsetDataWrapper, LabelSubsetWrapper, ResizeImagesWrapper
 from nnlib.nnlib.data_utils.base import get_loaders_from_datasets, get_input_shape
-from modules.data_utils import load_data_from_arguments
+from modules.data_utils import load_data_from_arguments, SwitchableRandomSampler, TurnOnTrainShufflingCallback
 import methods
 
 
@@ -61,6 +62,8 @@ def main():
     parser.add_argument('--S_seed', type=int, default=42)
     parser.add_argument('--exp_name', type=str, required=True)
     parser.add_argument('--deterministic', action='store_true', dest='deterministic')
+    parser.add_argument('--shuffle_train_only_after_first_epoch', action='store_true',
+                        dest="shuffle_train_only_after_first_epoch")
 
     # data parameters
     parser.add_argument('--dataset', '-D', type=str, default='corrupt4_mnist')
@@ -110,6 +113,12 @@ def main():
                                                                       batch_size=args.batch_size,
                                                                       num_workers=num_workers)
 
+    switchable_random_sampler = None
+    if args.shuffle_train_only_after_first_epoch:
+        switchable_random_sampler = SwitchableRandomSampler(data_source=train_data, shuffle=False)
+        train_loader = DataLoader(train_data, batch_size=args.batch_size,
+                                  num_workers=0, sampler=switchable_random_sampler)
+
     # Options
     optimization_args = {
         'optimizer': {
@@ -147,6 +156,10 @@ def main():
         metrics_list.append(metrics.TopKAccuracy(k=5, output_key='pred'))
 
     callbacks_list = [callbacks.SaveBestWithMetric(metric=metrics_list[0], partition='val', direction='max')]
+
+    if args.shuffle_train_only_after_first_epoch:
+        shuffle_callback = TurnOnTrainShufflingCallback(switchable_random_sampler=switchable_random_sampler)
+        callbacks_list.append(shuffle_callback)
 
     log_dir = f'results/{args.exp_name}/n={args.n},seed={args.seed},S_seed={args.S_seed}'
 

@@ -27,7 +27,10 @@ def foo(deterministic=False, **kwargs):
 
     command_prefix = f"python -um scripts.fcmi_train_classifier -c {config_file} -d cuda -b {batch_size} " \
                      f"-e {n_epochs} -s {save_iter} -v 10000 --exp_name {exp_name} -D {dataset} " \
-                     f"--which_labels {which_labels} --deterministic "
+                     f"--which_labels {which_labels} "
+
+    if deterministic:
+        command_prefix += "--deterministic "
 
     n_seeds = 5
     n_S_seeds = 30
@@ -66,12 +69,14 @@ def foo(**kwargs):
 
 
 @register_fn(local_functions, 'fcmi-mnist-4vs9-CNN-LD')
-def foo(**kwargs):
+def foo(shuffle_train_only_after_first_epoch=False, **kwargs):
     config_file = 'configs/binary-mnist-4layer-CNN.json'
     batch_size = 100
     n_epochs = 40
     save_iter = 4
     exp_name = "fcmi-mnist-4vs9-CNN-LD"
+    if shuffle_train_only_after_first_epoch:
+        exp_name = exp_name + '-shuffle_train_only_after_first_epoch'
     dataset = 'mnist'
     which_labels = '4 9'
     ld_lr = 0.004
@@ -81,6 +86,9 @@ def foo(**kwargs):
                      f"-e {n_epochs} -s {save_iter} -v 10000 --exp_name {exp_name} -D {dataset} " \
                      f"--which_labels {which_labels} -m LangevinDynamics --ld_lr {ld_lr} "\
                      f"--ld_beta {ld_beta} "
+
+    if shuffle_train_only_after_first_epoch:
+        command_prefix += "--shuffle_train_only_after_first_epoch "
 
     n_seeds = 5
     n_S_seeds = 30
@@ -158,6 +166,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_names', '-E', type=str, nargs='+', required=True)
     parser.add_argument('--deterministic', action='store_true', dest='deterministic')
+    parser.add_argument('--shuffle_train_only_after_first_epoch', action='store_true',
+                        dest='shuffle_train_only_after_first_epoch')
     args = parser.parse_args()
 
     for exp_name in args.exp_names:

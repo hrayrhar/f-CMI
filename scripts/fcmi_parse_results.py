@@ -46,11 +46,11 @@ def get_fcmi_results_for_fixed_z(n, epoch, seed, args):
 
         with open(os.path.join(dir_path, 'saved_data.pkl'), 'rb') as f:
             saved_data = pickle.load(f)
+        print(list(saved_data.keys()))
 
         model = utils.load(path=os.path.join(dir_path, 'checkpoints', f'epoch{epoch - 1}.mdl'),
                            methods=methods, device=args.device)
 
-        print(list(saved_data.keys()))
         if 'all_examples_wo_data_aug' in saved_data:
             all_examples = saved_data['all_examples_wo_data_aug']
         else:
@@ -68,11 +68,13 @@ def get_fcmi_results_for_fixed_z(n, epoch, seed, args):
         train_accs.append(cur_train_acc)
         val_accs.append(cur_val_acc)
 
-    fcmi_bound = estimate_fcmi_bound_classification(masks=masks, preds=preds,
-                                                    num_examples=n, num_classes=args.num_classes)
+    fcmi_bound, list_of_mis = estimate_fcmi_bound_classification(masks=masks, preds=preds,
+                                                                 num_examples=n, num_classes=args.num_classes,
+                                                                 return_list_of_mis=True)
 
-    # some extra for understanding why the f-cmi bound is high in the beginning (fcmi-mnist-4vs9-CNN-LD)
-    if args.exp_name == 'fcmi-mnist-4vs9-CNN-LD' and epoch == 4 and seed == 0:
+    # some extra for understanding why the f-cmi bound is high in the beginning (fcmi-mnist-4vs9-CNN-LD-*)
+    if (args.exp_name in ['fcmi-mnist-4vs9-CNN-LD', 'fcmi-mnist-4vs9-CNN-LD-shuffle_train_only_after_first_epoch']
+            and epoch == 4 and seed == 0):
         extra_data = {
             'all_examples': all_examples,
             'masks': masks,
@@ -80,14 +82,15 @@ def get_fcmi_results_for_fixed_z(n, epoch, seed, args):
             'num_examples': n,
             'num_classes': args.num_classes
         }
-        with open('results/fcmi-mnist-4vs9-CNN-LD/extra_data.pkl', 'wb') as f:
+        with open(f'results/{args.exp_name}/extra_data.pkl', 'wb') as f:
             pickle.dump(extra_data, f)
 
     return {
         'exp_train_acc': np.mean(train_accs),
         'exp_val_acc': np.mean(val_accs),
         'exp_gap': np.mean(train_accs) - np.mean(val_accs),
-        'fcmi_bound': fcmi_bound
+        'fcmi_bound': fcmi_bound,
+        'list_of_mis': list_of_mis
     }
 
 
@@ -165,7 +168,8 @@ def main():
         args.ns = [75, 250, 1000, 4000]
         args.epochs = [200]
         args.num_classes = 2
-    elif args.exp_name == 'fcmi-mnist-4vs9-CNN-LD':
+    elif args.exp_name in ['fcmi-mnist-4vs9-CNN-LD',
+                           'fcmi-mnist-4vs9-CNN-LD-shuffle_train_only_after_first_epoch']:
         args.n_seeds = 5
         args.n_S_seeds = 30
         args.ns = [4000]
@@ -198,7 +202,8 @@ def main():
         pickle.dump(results, f)
 
     # parse the quantities needed for the Negrea et al. SGLD bound
-    if args.exp_name in ['fcmi-mnist-4vs9-CNN-LD', 'cifar10-pretrained-resnet50-LD']:
+    if args.exp_name in ['fcmi-mnist-4vs9-CNN-LD', 'cifar10-pretrained-resnet50-LD',
+                         'fcmi-mnist-4vs9-CNN-LD-shuffle_train_only_after_first_epoch']:
         sgld_results = NestedDict()  # indexing with n, epoch
         for n in tqdm(args.ns):
             for epoch in tqdm(args.epochs, leave=False):
